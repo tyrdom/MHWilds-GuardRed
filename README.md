@@ -81,3 +81,8 @@ powershell -File tools\deploy.ps1 -CleanScan
 
 个人使用。修改运行时数值有风险，先备份存档：
 `C:\Program Files (x86)\Steam\userdata\<你的ID>\2246340\remote\`
+
+## 许可
+
+[MIT](LICENSE)。随意使用、修改、再分发，保留版权声明即可。
+
