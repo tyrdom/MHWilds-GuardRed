@@ -1,0 +1,15 @@
+# 本地下载的安装包，不进仓库
+downloads/
+*.zip
+*.7z
+
+# REFramework 运行时产物
+reframework/*.log
+reframework/*.dmp
+re2_framework_log.txt
+reframework_crash.dmp
+
+# 编辑器
+.vscode/
+.idea/
+*.bak
