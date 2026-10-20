@@ -49,3 +49,18 @@ hunter:call("get_BaseActionController"):call("get_CurrentActionID")  -- _Categor
 ## 免责
 
 个人使用。修改运行时数值有崩溃风险，先备份存档。联机时只影响自己。
+
+## 环境状态（本机）
+
+- 游戏：Steam build `24705561`，安装在 `C:\Program Files (x86)\Steam\steamapps\common\MonsterHunterWilds`
+- REFramework：nightly-01432（2026-10-11），`REFramework.zip`
+  - sha256：`27376e1da177ddcde9c46b3541bdc6fa1ad54a11d0cab9f7782eff0481455e94`
+  - 已解压 `dinput8.dll` 到游戏根目录（23,084,544 字节）
+- 本机网络：`github.com` 直连 TLS 握手失败，下载走镜像 `https://gh-proxy.com/<原始 GitHub 链接>`
+- 脚本已放到游戏目录 `reframework/autorun/guard_red.lua`
+
+## 下一步
+
+1. 启动游戏，按 `Insert` 确认 REFramework 菜单出现。
+2. ScriptRunner → Run Script → 选 `tools/probe.lua`，进任务打怪，观察日志。
+3. 把字段名 / 状态标志填进 `guard_red.lua` 的 `CONFIG`。
