@@ -16,6 +16,9 @@ build/
 dist/stage/
 dist/*.zip
 
+# 例外：release/ 下的发布包要进仓库，给 Gitee raw 直链用
+!release/*.zip
+
 # 编辑器
 .vscode/
 .idea/
