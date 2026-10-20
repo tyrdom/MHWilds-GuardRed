@@ -9,6 +9,9 @@ reframework/*.dmp
 re2_framework_log.txt
 reframework_crash.dmp
 
+# 离线分析产物
+build/
+
 # 编辑器
 .vscode/
 .idea/

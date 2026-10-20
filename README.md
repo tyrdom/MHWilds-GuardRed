@@ -1,66 +1,83 @@
 # MHWilds Guard-Red
 
-把《怪物猎人：荒野》里**霸体 / 相杀状态下受到的伤害**变成可自然回复的红血（不产生永久掉血）。
+把《怪物猎人：荒野》里**霸体 / 相杀状态下受到的伤害变成 100% 可回复红血**——不产生永久掉血，
+红血按游戏原本的节奏（每 1.5 秒 +1 HP）慢慢补回绿血。
 
-> 状态：脚手架阶段。脚本逻辑已就位，但**红血字段名和霸体/相杀的状态标志还需要进游戏用探针确认**。
+> 状态：**已实测可用**（2026-10-20，Steam build 24705561 + REFramework nightly-01432）。
+
+## 效果
+
+| 场景 | 原版 | 装了这个 mod |
+|---|---|---|
+| 普通挨打（掉 21 点） | HP 掉 21，红血上限只补 10.5，永久损失约 10.5 | 不变（只在你霸体/相杀时生效） |
+| **霸体/相杀时挨打** | 同上，仍会永久掉血 | HP 掉 21，**红血上限不降**，可回 21，随后慢慢回满 |
+
+它不是无敌：HP 照样会掉，只是掉下去的都能回；爆发伤害仍然可能打死你。
 
 ## 依赖
 
-- REFramework（nightly，单体 `dinput8.dll`，放到游戏根目录）
+- REFramework（nightly，单文件 `dinput8.dll`）
 - 游戏版本：Steam build `24705561`（2026-10 时点）
 
 ## 安装
 
-1. 安装 REFramework：把 `dinput8.dll` 放到 `MonsterHunterWilds.exe` 同级目录。
-2. 把本仓库的 `reframework` 文件夹整个复制到游戏根目录，覆盖合并。
-3. 启动游戏，按 `Insert` 呼出 REFramework 菜单，确认 `GuardRed` 面板出现。
+1. 把 REFramework 的 `dinput8.dll` 放到 `MonsterHunterWilds.exe` 同级目录。
+2. 把本仓库的 `reframework` 文件夹整个复制到游戏根目录（覆盖合并）。
+3. 启动游戏，按 `Insert` 呼出菜单，在 `Script Generated UI` → `GuardRed` 里能看到面板。
 
-## 开发流程
+`reframework/autorun/guard_red.lua` 是唯一需要的文件；`tools/` 里的东西都是开发用的，不装也能用。
 
-1. 先跑探针 `tools/probe.lua`（手动 Run Script，或临时放进 `reframework/autorun/`）。
-2. 在游戏里被打 / 相杀，观察 `re2_framework_log.txt` 里哪个 float 字段跟着掉血、哪个跟着涨红。
-3. 把字段名填进 `reframework/autorun/guard_red.lua` 顶部的 `CONFIG`。
-4. 把 `app.HunterDef.STATUS_FLAG` 里霸体/相杀对应的 flag 填进 `CONFIG.guard_flags`。
-5. 重新加载脚本（ScriptRunner → Reset Scripts），实测。
+## 面板
 
-## 目录结构
+- **启用**：总开关
+- **仅霸体/相杀时生效**：默认开。关掉就是所有伤害都 100% 红
+- **红血方案（关闭=补绿血）**：默认开。关掉会退化成“受伤后直接把 HP 补回来”（等于该状态下无敌，只在红血方案出问题时当备选）
+- 调试日志：打开后每次写值都会往 `re2_framework_log.txt` 打一行
+
+## 原理（一句话版）
+
+游戏里红血上限 `_RedHealth` 是个**绝对 HP 值**：受击后 `红血上限 = 新HP + 0.5×伤害`，所以只有一半能回。
+mod 在 `HYPER_ARMOR`（铁壁，8 号）状态位开启时，把 `_RedHealth` 直接写回 `max(受伤前红血上限, 受伤前HP)`，
+这一击就变成 100% 可回。
+
+细节和踩过的坑（**不能调 `setRedHealth()` 方法**，否则下一击会被算成 185 伤害）见 `docs/NOTES.md`。
+
+## 目录
 
 ```
-reframework/autorun/guard_red.lua   主逻辑（帧循环 + imgui 开关）
-tools/probe.lua                      字段/枚举探针（不进 autorun）
-docs/NOTES.md                        已知 API、待确认项
+reframework/autorun/guard_red.lua   正式脚本（唯一需要装的文件）
+tools/scan.lua                      开发期只读探针（记录状态位/HP/红血/动作 ID）
+tools/deploy.ps1                    同步脚本到游戏目录（-WithScan 附带探针，-CleanScan 删除）
+tools/strings_scan.py               扫游戏 exe 字符串，找 API 名字（离线）
+tools/strings_scan2.py              同上，按类型名/关键词分类
+tools/strings_context.py            看某个字段名在 exe 里的上下文
+docs/INGAME.md                      游戏内测试清单
+docs/NOTES.md                       设计笔记 + 完整实测结论
+HANDOFF.md                          交接说明（新会话先读）
 ```
 
-## 已知 API（来自社区开源项目，非官方）
+## 开发
 
-```lua
-local pm = sdk.get_managed_singleton("app.PlayerManager")
-local player = pm:call("getMasterPlayer")      -- cPlayerManageInfo
-local hunter = player:call("get_Character")    -- app.HunterCharacter
+```powershell
+# 只同步正式脚本
+powershell -File tools\deploy.ps1
 
-hunter:call("get_HunterStatus"):get_field("_HunterStatusFlag")  -- ace.cSafeContinueFlagGroup
--- flags:call("check(System.UInt32)", value) / on / off
--- 枚举：app.HunterDef.STATUS_FLAG
+# 同步正式脚本 + 探针（探针会往日志里写东西，测完记得删）
+powershell -File tools\deploy.ps1 -WithScan
 
-hunter:call("get_BaseActionController"):call("get_CurrentActionID")  -- _Category / _Index
--- 受击事件：evHit_DamagePreProcess（结算前）/ evHit_Damage（结算后）
+# 删掉探针
+powershell -File tools\deploy.ps1 -CleanScan
 ```
+
+改完脚本后，游戏内 `ScriptRunner → Reset Scripts` 重载。
+
+## 已知限制
+
+- `HYPER_ARMOR` 不是“相杀成功”的专属标记，只是铁壁级霸体；真正的相杀判定在伤害结算里，状态位看不到
+- 反应等级（弱/中/强攻击）仍然照常生效：强攻击照样能把你打飞，只是伤害转成了红血
+- 一击把 HP 打到 0 仍然会猫车（红血只影响“可回上限”，不防死）
 
 ## 免责
 
-个人使用。修改运行时数值有崩溃风险，先备份存档。联机时只影响自己。
-
-## 环境状态（本机）
-
-- 游戏：Steam build `24705561`，安装在 `C:\Program Files (x86)\Steam\steamapps\common\MonsterHunterWilds`
-- REFramework：nightly-01432（2026-10-11），`REFramework.zip`
-  - sha256：`27376e1da177ddcde9c46b3541bdc6fa1ad54a11d0cab9f7782eff0481455e94`
-  - 已解压 `dinput8.dll` 到游戏根目录（23,084,544 字节）
-- 本机网络：`github.com` 直连 TLS 握手失败，下载走镜像 `https://gh-proxy.com/<原始 GitHub 链接>`
-- 脚本已放到游戏目录 `reframework/autorun/guard_red.lua`
-
-## 下一步
-
-1. 启动游戏，按 `Insert` 确认 REFramework 菜单出现。
-2. ScriptRunner → Run Script → 选 `tools/probe.lua`，进任务打怪，观察日志。
-3. 把字段名 / 状态标志填进 `guard_red.lua` 的 `CONFIG`。
+个人使用。修改运行时数值有风险，先备份存档：
+`C:\Program Files (x86)\Steam\userdata\<你的ID>\2246340\remote\`

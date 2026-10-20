@@ -1,21 +1,38 @@
-# 把仓库里的 reframework 目录同步到游戏目录（开发时反复用）
-# 用法：pwsh -File tools/deploy.ps1
+# Sync repo scripts into the game folder.
+# Usage:
+#   powershell -File tools\deploy.ps1            only guard_red.lua
+#   powershell -File tools\deploy.ps1 -WithScan  also put tools\scan.lua into autorun
+#   powershell -File tools\deploy.ps1 -CleanScan remove the scan script from autorun
+# NOTE: keep this file ASCII-only; Windows PowerShell 5.1 mis-parses UTF-8 without BOM.
 param(
-    [string]$GameDir = "C:\Program Files (x86)\Steam\steamapps\common\MonsterHunterWilds"
+    [string]$GameDir = "C:\Program Files (x86)\Steam\steamapps\common\MonsterHunterWilds",
+    [switch]$WithScan,
+    [switch]$CleanScan
 )
 
 $src = Join-Path $PSScriptRoot "..\reframework"
-$dst = Join-Path $GameDir "reframework"
+$auto = Join-Path $GameDir "reframework\autorun"
+$scanDst = Join-Path $auto "zz_guardred_scan.lua"
 
 if (-not (Test-Path (Join-Path $GameDir "MonsterHunterWilds.exe"))) {
-    Write-Error "游戏目录不对：$GameDir"
+    Write-Error "Wrong game dir: $GameDir"
     exit 1
 }
 if (-not (Test-Path (Join-Path $GameDir "dinput8.dll"))) {
-    Write-Warning "游戏目录里没有 dinput8.dll，REFramework 还没装。"
+    Write-Warning "No dinput8.dll in game dir; REFramework is not installed."
 }
 
-New-Item -ItemType Directory -Force -Path (Join-Path $dst "autorun") | Out-Null
-Copy-Item (Join-Path $src "autorun\guard_red.lua") (Join-Path $dst "autorun\guard_red.lua") -Force
-Write-Host "已同步 guard_red.lua -> $dst\autorun"
-Write-Host "进游戏后 ScriptRunner -> Reset Scripts 生效。"
+New-Item -ItemType Directory -Force -Path $auto | Out-Null
+Copy-Item (Join-Path $src "autorun\guard_red.lua") (Join-Path $auto "guard_red.lua") -Force
+
+if ($WithScan) {
+    Copy-Item (Join-Path $PSScriptRoot "scan.lua") $scanDst -Force
+    Write-Host "scan.lua -> $scanDst  (remove later with -CleanScan)"
+}
+if ($CleanScan -and (Test-Path $scanDst)) {
+    Remove-Item $scanDst -Force
+    Write-Host "removed $scanDst"
+}
+
+Write-Host "synced guard_red.lua -> $auto"
+Write-Host "In game: ScriptRunner -> Reset Scripts to reload."
